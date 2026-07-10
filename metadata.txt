@@ -1,0 +1,15 @@
+[general]
+name=GeoSpecies Tools
+qgisMinimumVersion=3.28
+qgisMaximumVersion=4.99
+description=Herramientas GEE y preparación de datos para especies. / GEE tools and data preparation for species modeling.
+version=1.0
+author=Geomatica
+email=nino@geomatica.pe
+homepage=https://www.geomatica.pe/
+about=Plugin para descarga de variables (WorldClim, SoilGrids) con GEE y preparación de datos para MaxEnt. / QGIS Plugin providing Google Earth Engine tools for downloading environmental variables and utilities for species data preparation (MaxEnt). Info: +51 995664488
+tracker=
+repository=
+category=Analysis
+tags=gee, worldclim, species, gbif, biodiversidad
+icon=icono.png
