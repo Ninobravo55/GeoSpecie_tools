@@ -53,7 +53,7 @@ class InstallDepsDialog(QDialog):
         try:
             from qgis.core import QgsApplication
             target_dir = os.path.join(QgsApplication.qgisSettingsDirPath(), "python")
-        except Exception:
+        except Exception as err:
             target_dir = ""
 
         target_arg = f'--target "{target_dir}"' if target_dir else '--user'
@@ -115,5 +115,6 @@ echo ========================================================
         try:
             if hasattr(self, 'temp_bat') and os.path.exists(self.temp_bat):
                 os.remove(self.temp_bat)
-        except BaseException:
-            pass
+        except OSError as err:
+            from qgis.core import QgsMessageLog, Qgis
+            QgsMessageLog.logMessage(f"No se pudo borrar bat temporal: {err}", "GeoSpeciesTools", Qgis.MessageLevel.Info)

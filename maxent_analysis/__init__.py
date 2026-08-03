@@ -15,4 +15,4 @@ except ImportError:
     # (100% puro Python) fuera de un entorno QGIS, ej. para correr los
     # tests con pytest sin QGIS instalado -- mismo criterio que
     # climate_tiles/__init__.py y species_download/__init__.py.
-    pass
+    batch = None  # noqa: F401

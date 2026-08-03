@@ -13,6 +13,7 @@ from qgis.core import (
 from qgis.PyQt.QtCore import QCoreApplication
 
 from ..utils.aoi_builder import build_aoi, to_ee_geometry, safe_simplify
+from ..utils.gee_init import ensure_gee_initialized
 
 
 class WorldClimClimatologyAlgorithm(QgsProcessingAlgorithm):
@@ -74,7 +75,7 @@ class WorldClimClimatologyAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterMapLayer(
                 self.INPUT_LAYER,
                 self.tr('Opción 1: Seleccionar Capa Vectorial (se recorta según su proyección)'),
-                [QgsProcessing.TypeVectorPolygon],
+                [QgsProcessing.SourceType.TypeVectorPolygon],
                 optional=True,
             )
         )
@@ -121,17 +122,12 @@ class WorldClimClimatologyAlgorithm(QgsProcessingAlgorithm):
         # ── Importar earthengine-api ──────────────────────────────────
         try:
             import ee
-            ee.Initialize()
         except ImportError:
             raise QgsProcessingException(
                 "El paquete earthengine-api no está instalado. "
                 "Ejecute 'Instalación dependencias GEE'."
             )
-        except Exception as e:
-            raise QgsProcessingException(
-                f"Error al inicializar GEE: {str(e)}\n"
-                "Ejecute primero 'Autenticación GEE'."
-            )
+        ensure_gee_initialized(feedback)
 
         # ── Parámetros ────────────────────────────────────────────────
         crs           = self.parameterAsCrs(parameters, self.EPSG, context).authid()
@@ -212,7 +208,7 @@ class WorldClimClimatologyAlgorithm(QgsProcessingAlgorithm):
                     'region' : aoi,
                     'format' : 'GEO_TIFF',
                 })
-                urllib.request.urlretrieve(url, filepath)
+                urllib.request.urlretrieve(url, filepath)  # nosec
                 feedback.pushInfo(f"    ✓ Guardado: {filepath}")
             except Exception as e:
                 feedback.reportError(f"    ✗ Error en {banda}: {str(e)}")

@@ -67,7 +67,7 @@ class UniformizarRasterAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterFile(
                 self.IN_FOLDER,
                 self.tr('Carpeta de entrada (con archivos .tif)'),
-                behavior=QgsProcessingParameterFile.Folder,
+                behavior=QgsProcessingParameterFile.Behavior.Folder,
             )
         )
         self.addParameter(

@@ -280,9 +280,9 @@ class MaxentAnalysisDialog(QDialog):
                 reply = QMessageBox.question(
                     self, self.tr("Análisis en curso"),
                     self.tr("Hay un análisis en curso. ¿Deseas cancelarlo y cerrar la ventana?"),
-                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
-                if reply != QMessageBox.Yes:
+                if reply != QMessageBox.StandardButton.Yes:
                     event.ignore()
                     return
                 self._close_requested = True

@@ -73,7 +73,7 @@ def centroid_and_bbox_from_layer(layer):
     centroid = union_geom.centroid()
     point = centroid.asPoint()
 
-    is_point_geom = union_geom.type() == QgsWkbTypes.PointGeometry
+    is_point_geom = union_geom.type() == QgsWkbTypes.GeometryType.PointGeometry
     if is_point_geom:
         bbox = None
     else:

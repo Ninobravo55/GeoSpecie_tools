@@ -170,7 +170,7 @@ def export_points(records, output_path, target_crs_authid=None):
 
     # writeAsVectorFormatV3 devuelve una tupla (error_code, error_message, ...)
     error_code = result[0] if isinstance(result, tuple) else result
-    if error_code != QgsVectorFileWriter.NoError:
+    if error_code != QgsVectorFileWriter.WriterError.NoError:
         error_msg = result[1] if isinstance(result, tuple) and len(result) > 1 else str(result)
         raise ExportError(f"No se pudo escribir la capa de salida: {error_msg}")
 

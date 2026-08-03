@@ -48,10 +48,9 @@ class UniformizarRasterWorldClimAlgorithm(QgsProcessingAlgorithm):
             "<b>Descripción:</b><br>"
             "Prepara datos descargados de WorldClim 2.1 Histórico, ajustándolos a un Raster Maestro (MDE), "
             "y exportando a ASCII. Automáticamente detecta las variables en la carpeta:<br><br>"
-            "- <b>tmin, tmax, tavg, wind, vapr, srad</b>: Promedia las 12 bandas.<br>"
+            "- <b>tmin, tmax, tavg, wind, srad</b>: Promedia las 12 bandas.<br>"
             "- <b>prec</b>: Suma las 12 bandas.<br>"
-            "- <b>bio</b>: Separa las bandas 1 a 19.<br>"
-            "- <b>elev</b>: Simplemente recorta/ajusta (1 banda)."
+            "- <b>bio</b>: Separa las bandas 1 a 19."
         )
 
     def initAlgorithm(self, config=None):
@@ -59,7 +58,7 @@ class UniformizarRasterWorldClimAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterFile(
                 self.IN_FOLDER,
                 self.tr('Directorio de variables WorldClim 2.1 (TIF)'),
-                behavior=QgsProcessingParameterFile.Folder,
+                behavior=QgsProcessingParameterFile.Behavior.Folder,
             )
         )
         self.addParameter(
@@ -96,16 +95,12 @@ class UniformizarRasterWorldClimAlgorithm(QgsProcessingAlgorithm):
                 variables_encontradas["tavg"] = archivo
             elif "wind" in nombre:
                 variables_encontradas["wind"] = archivo
-            elif "vapr" in nombre:
-                variables_encontradas["vapr"] = archivo
             elif "srad" in nombre:
                 variables_encontradas["srad"] = archivo
             elif "prec" in nombre:
                 variables_encontradas["prec"] = archivo
             elif "bio" in nombre:
                 variables_encontradas["bio"] = archivo
-            elif "elev" in nombre:
-                variables_encontradas["elev"] = archivo
 
         if not variables_encontradas:
             raise QgsProcessingException("No se encontraron archivos TIF de WorldClim 2.1 (con tmin, tmax, bio, etc.) en el directorio.")
@@ -199,10 +194,10 @@ class UniformizarRasterWorldClimAlgorithm(QgsProcessingAlgorithm):
             ds = None
             feedback.pushInfo(f"Generado: {nombre_base} ({tipo_calc})")
 
-        # variables de media (tmin, tmax, tavg, wind, vapr, srad)
+        # variables de media (tmin, tmax, tavg, wind, srad)
         vars_promedio = {"tmin": "tmin_media.tif", "tmax": "tmax_media.tif", 
                          "tavg": "tavg_media.tif", "wind": "wind_media.tif", 
-                         "vapr": "vapr_media.tif", "srad": "srad_media.tif"}
+                         "srad": "srad_media.tif"}
                          
         for v, out_name in vars_promedio.items():
             if v in archivos_ajustados:
@@ -211,25 +206,6 @@ class UniformizarRasterWorldClimAlgorithm(QgsProcessingAlgorithm):
         # variables de suma (prec)
         if "prec" in archivos_ajustados:
             procesar_bandas(archivos_ajustados["prec"], "prec_acumulada.tif", 'suma', 12)
-
-        # elev (copia simple, ya está ajustado a MDE)
-        if "elev" in archivos_ajustados:
-            ds = gdal.Open(archivos_ajustados["elev"])
-            datos = ds.GetRasterBand(1).ReadAsArray()
-            salida_calc = os.path.join(variables, "elev.tif")
-            out = driver.Create(
-                salida_calc, ds.RasterXSize, ds.RasterYSize, 1, gdal.GDT_Float32,
-                options=["COMPRESS=LZW", "TILED=YES"]
-            )
-            out.SetProjection(ds.GetProjection())
-            out.SetGeoTransform(ds.GetGeoTransform())
-            band = out.GetRasterBand(1)
-            band.SetNoDataValue(-9999)
-            band.WriteArray(datos)
-            out.FlushCache()
-            out = None
-            ds = None
-            feedback.pushInfo("Generado: elev.tif")
 
         # bio (separar 19 bandas)
         if "bio" in archivos_ajustados:

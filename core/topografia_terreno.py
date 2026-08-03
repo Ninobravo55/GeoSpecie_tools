@@ -18,6 +18,7 @@ from qgis.core import (
 from qgis.PyQt.QtCore import QCoreApplication
 
 from ..utils.aoi_builder import build_aoi, to_ee_geometry, safe_simplify
+from ..utils.gee_init import ensure_gee_initialized
 
 
 GEE_DEMS = [
@@ -133,7 +134,7 @@ class TopografiaTerrenoAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterMapLayer(
                 self.INPUT_LAYER,
                 self.tr('Opción 1: Seleccionar Capa Vectorial (se recorta según su proyección)'),
-                [QgsProcessing.TypeVectorPolygon],
+                [QgsProcessing.SourceType.TypeVectorPolygon],
                 optional=True,
             )
         )
@@ -174,17 +175,12 @@ class TopografiaTerrenoAlgorithm(QgsProcessingAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         try:
             import ee
-            ee.Initialize()
         except ImportError:
             raise QgsProcessingException(
                 "El paquete earthengine-api no está instalado. "
                 "Ejecute 'Instalación dependencias GEE'."
             )
-        except Exception as e:
-            raise QgsProcessingException(
-                f"Error al inicializar GEE: {str(e)}\n"
-                "Ejecute primero 'Autenticación GEE'."
-            )
+        ensure_gee_initialized(feedback)
 
         crs            = self.parameterAsCrs(parameters, self.EPSG, context).authid()
         dem_idx        = self.parameterAsEnum(parameters, self.DEM_SOURCE, context)
@@ -227,7 +223,7 @@ class TopografiaTerrenoAlgorithm(QgsProcessingAlgorithm):
                 'region': aoi_ee,
                 'format': 'GEO_TIFF'
             })
-            urllib.request.urlretrieve(url, dem_path)
+            urllib.request.urlretrieve(url, dem_path)  # nosec
             feedback.pushInfo("✓ DEM descargado correctamente.")
         except Exception as e:
             raise QgsProcessingException(f"Error al descargar DEM desde GEE: {str(e)}\nPosiblemente el área sea demasiado grande.")

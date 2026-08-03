@@ -13,6 +13,7 @@ from qgis.core import (
 from qgis.PyQt.QtCore import QCoreApplication
 
 from ..utils.aoi_builder import build_aoi, to_ee_geometry, safe_simplify
+from ..utils.gee_init import ensure_gee_initialized
 
 
 class SoilGridsIsricAlgorithm(QgsProcessingAlgorithm):
@@ -87,7 +88,7 @@ class SoilGridsIsricAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterMapLayer(
                 self.INPUT_LAYER,
                 self.tr('Opción 1: Seleccionar Capa Vectorial (se recorta según su proyección)'),
-                [QgsProcessing.TypeVectorPolygon],
+                [QgsProcessing.SourceType.TypeVectorPolygon],
                 optional=True,
             )
         )
@@ -143,17 +144,12 @@ class SoilGridsIsricAlgorithm(QgsProcessingAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         try:
             import ee
-            ee.Initialize()
         except ImportError:
             raise QgsProcessingException(
                 "El paquete earthengine-api no está instalado. "
                 "Ejecute 'Instalación dependencias GEE'."
             )
-        except Exception as e:
-            raise QgsProcessingException(
-                f"Error al inicializar GEE: {str(e)}\n"
-                "Ejecute primero 'Autenticación GEE'."
-            )
+        ensure_gee_initialized(feedback)
 
         crs            = self.parameterAsCrs(parameters, self.EPSG, context).authid()
         prof_index     = self.parameterAsEnum(parameters, self.PROFUNDIDAD, context)
@@ -254,8 +250,8 @@ class SoilGridsIsricAlgorithm(QgsProcessingAlgorithm):
             img = ee.Image(v["asset"])
             salida = obtenerProfundidad(img, v["banda"], profundidad)
             if salida:
-                # factor de escala, reemplazar nodata por -9999, renombrar, float y clip
-                salida = salida.multiply(v["escala"]).unmask(-9999).rename(v["nombre"]).toFloat().clip(aoi_ee)
+                # factor de escala, renombrar, float y clip
+                salida = salida.multiply(v["escala"]).rename(v["nombre"]).toFloat().clip(aoi_ee)
                 bandas_procesadas.append(salida)
                 nombres_bandas.append(v["nombre"])
 
@@ -306,7 +302,7 @@ class SoilGridsIsricAlgorithm(QgsProcessingAlgorithm):
                         'noData': -9999
                     }
                 })
-                urllib.request.urlretrieve(url, filepath)
+                urllib.request.urlretrieve(url, filepath)  # nosec
                 feedback.pushInfo(f"    ✓ Guardado: {filepath}")
             except Exception as e:
                 feedback.reportError(f"    ✗ Error en {banda}: {str(e)}")

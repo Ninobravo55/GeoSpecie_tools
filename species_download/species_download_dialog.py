@@ -42,7 +42,14 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 from qgis.gui import QgsFileWidget, QgsMapLayerComboBox, QgsProjectionSelectionWidget
-from qgis.core import QgsCoordinateReferenceSystem, QgsMapLayerProxyModel, QgsProject, QgsVectorLayer
+from qgis.core import (
+    QgsCoordinateReferenceSystem,
+    QgsMapLayerProxyModel,
+    QgsMessageLog,
+    QgsProject,
+    QgsVectorLayer,
+    Qgis,
+)
 
 from . import gbif_api
 from .aoi import layer_geometry_to_wkt_4326, AoiError
@@ -138,7 +145,7 @@ class SpeciesDownloadDialog(QDialog):
 
         self.lstSpecies = QListWidget()
         self.lstSpecies.setObjectName("lstSpecies")
-        self.lstSpecies.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.lstSpecies.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         layout.addWidget(self.lstSpecies)
 
         return group
@@ -166,7 +173,7 @@ class SpeciesDownloadDialog(QDialog):
 
         self.cmbAOI = QgsMapLayerComboBox()
         self.cmbAOI.setObjectName("cmbAOI")
-        self.cmbAOI.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+        self.cmbAOI.setFilters(QgsMapLayerProxyModel.Filter.PolygonLayer)
 
         layout.addWidget(self.rbWorld, 0, 0)
         layout.addWidget(self.rbCountry, 1, 0)
@@ -272,7 +279,7 @@ class SpeciesDownloadDialog(QDialog):
         layout.addWidget(QLabel(self.tr("Carpeta de salida")), 0, 0)
         self.txtOutputFolder = QgsFileWidget()
         self.txtOutputFolder.setObjectName("txtOutputFolder")
-        self.txtOutputFolder.setStorageMode(QgsFileWidget.GetDirectory)
+        self.txtOutputFolder.setStorageMode(QgsFileWidget.StorageMode.GetDirectory)
         layout.addWidget(self.txtOutputFolder, 0, 1)
 
         layout.addWidget(QLabel(self.tr("Nombre de archivo")), 1, 0)
@@ -353,7 +360,7 @@ class SpeciesDownloadDialog(QDialog):
 
     def _on_species_selection_changed(self):
         item = self.lstSpecies.currentItem()
-        self._selected_species_key = item.data(Qt.UserRole) if item else None
+        self._selected_species_key = item.data(Qt.ItemDataRole.UserRole) if item else None
 
     # ------------------------------------------------------------------
     # search_species — Grupo 1
@@ -377,7 +384,7 @@ class SpeciesDownloadDialog(QDialog):
         self._selected_species_key = None
         self.lblStatus.setText(self.tr("Buscando especie en GBIF..."))
 
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             matches = gbif_api.suggest_species(query)
         except gbif_api.GbifApiError as exc:
@@ -401,7 +408,7 @@ class SpeciesDownloadDialog(QDialog):
             if extra:
                 label = f"{label}  [{extra}]"
             item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, match["key"])
+            item.setData(Qt.ItemDataRole.UserRole, match["key"])
             self.lstSpecies.addItem(item)
 
         self.lblStatus.setText(self.tr(f"{len(matches)} especie(s) encontradas."))
@@ -446,7 +453,7 @@ class SpeciesDownloadDialog(QDialog):
         # antes de armar la query o la búsqueda puede volver a salir
         # vacía por esta causa en vez de por country/year/uncertainty.
         # ------------------------------------------------------------
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             taxon_key, synonym_message = gbif_api.resolve_accepted_taxon_key(self._selected_species_key)
         except gbif_api.GbifApiError as exc:
@@ -489,7 +496,7 @@ class SpeciesDownloadDialog(QDialog):
         # en total para estos filtros exactos. Es una sola petición rápida,
         # síncrona, igual que search_species().
         # ------------------------------------------------------------
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.lblStatus.setText(self.tr("Consultando conteo total en GBIF..."))
         try:
             total_count, elapsed = gbif_api.count_occurrences(query_params)
@@ -538,9 +545,9 @@ class SpeciesDownloadDialog(QDialog):
                 f"Tiempo estimado: {estimate_text} (puede variar según la conexión y la API)."
                 f"{warning_extra}\n\n¿Continuar con la descarga?"
             ),
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             self.lblStatus.setText(self.tr("Listo"))
             return
 
@@ -601,8 +608,12 @@ class SpeciesDownloadDialog(QDialog):
             try:
                 self.iface.mapCanvas().setExtent(layer.extent())
                 self.iface.mapCanvas().refresh()
-            except Exception:
-                pass  # self.iface puede ser None o un stub en pruebas fuera de QGIS
+            except Exception as err:
+                QgsMessageLog.logMessage(
+                    f"No se pudo refrescar el canvas de QGIS: {err}",
+                    "GeoSpeciesTools",
+                    Qgis.MessageLevel.Info
+                )
 
         QMessageBox.information(
             self, self.tr("Descarga completada"),
@@ -655,9 +666,9 @@ class SpeciesDownloadDialog(QDialog):
                 reply = QMessageBox.question(
                     self, self.tr("Descarga en curso"),
                     self.tr("Hay una descarga en curso. ¿Deseas cancelarla y cerrar la ventana?"),
-                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
-                if reply != QMessageBox.Yes:
+                if reply != QMessageBox.StandardButton.Yes:
                     event.ignore()
                     return
 

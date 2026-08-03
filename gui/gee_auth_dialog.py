@@ -15,7 +15,7 @@ class GEEAuthTask(QgsTask):
     """
 
     def __init__(self, project_id, description="Autenticando Google Earth Engine"):
-        super().__init__(description, QgsTask.CanCancel)
+        super().__init__(description, QgsTask.Flag.CanCancel)
         self.project_id = project_id
         self.exception_msg = None
         self.success = False
@@ -35,13 +35,13 @@ class GEEAuthTask(QgsTask):
             QgsMessageLog.logMessage(
                 f"Error GEE Auth: {traceback.format_exc()}",
                 "GeoSpeciesTools",
-                Qgis.Critical)
+                Qgis.MessageLevel.Critical)
             return False
 
     def finished(self, result):
         if result and self.success:
             QgsMessageLog.logMessage(
-                "GEE Autenticación Exitosa", "GeoSpeciesTools", Qgis.Success)
+                "GEE Autenticación Exitosa", "GeoSpeciesTools", Qgis.MessageLevel.Success)
             settings = QgsSettings()
             if self.project_id:
                 settings.setValue('geospeciestools/gee_project', self.project_id)
@@ -50,7 +50,7 @@ class GEEAuthTask(QgsTask):
         else:
             QgsMessageLog.logMessage(
                 f"Fallo GEE Auth: {self.exception_msg}",
-                "GeoSpeciesTools", Qgis.Critical)
+                "GeoSpeciesTools", Qgis.MessageLevel.Critical)
 
 
 class GEEAuthDialog(QDialog):
@@ -70,7 +70,7 @@ class GEEAuthDialog(QDialog):
 
         # ── Banner de estado ──────────────────────────────────────────
         self.status_frame = QFrame()
-        self.status_frame.setFrameShape(QFrame.StyledPanel)
+        self.status_frame.setFrameShape(QFrame.Shape.StyledPanel)
         status_layout = QHBoxLayout(self.status_frame)
         status_layout.setContentsMargins(12, 8, 12, 8)
         self.status_icon = QLabel()
@@ -156,12 +156,20 @@ class GEEAuthDialog(QDialog):
             import os
             try:
                 cred_path = ee.oauth.get_credentials_path()
-                if os.path.exists(cred_path):
+                if cred_path and os.path.exists(cred_path):
                     return True
-            except Exception:
-                pass
-        except ImportError:
-            pass
+            except Exception as err:
+                QgsMessageLog.logMessage(
+                    f"No se pudieron leer credenciales de GEE: {err}",
+                    "GeoSpeciesTools",
+                    Qgis.MessageLevel.Info
+                )
+        except ImportError as err:
+            QgsMessageLog.logMessage(
+                f"earthengine-api no disponible al verificar estado: {err}",
+                "GeoSpeciesTools",
+                Qgis.MessageLevel.Info
+            )
         return False
 
     def _update_status(self):

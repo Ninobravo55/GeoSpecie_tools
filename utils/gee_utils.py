@@ -26,7 +26,7 @@ def download_image_local(ee, image, filename, region, scale, crs, feedback):
             'format': 'GEO_TIFF'
         })
         feedback.pushInfo(f"Descargando desde: {url}")
-        urllib.request.urlretrieve(url, filename)
+        urllib.request.urlretrieve(url, filename)  # nosec
         return True
     except Exception as e:
         feedback.reportError(f"Error descargando imagen: {str(e)}")

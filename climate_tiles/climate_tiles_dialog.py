@@ -111,7 +111,7 @@ class ClimateTilesDialog(QDialog):
         self.lblModeHelp = QLabel("")
         self.lblModeHelp.setObjectName("lblModeHelp")
         self.lblModeHelp.setWordWrap(True)
-        self.lblModeHelp.setTextFormat(Qt.RichText)
+        self.lblModeHelp.setTextFormat(Qt.TextFormat.RichText)
         self.lblModeHelp.setStyleSheet("color: #555555; font-size: 9pt;")
         outer.addWidget(self.lblModeHelp)
 
@@ -142,7 +142,7 @@ class ClimateTilesDialog(QDialog):
 
         self.cmbPolygonLayer = QgsMapLayerComboBox()
         self.cmbPolygonLayer.setObjectName("cmbPolygonLayer")
-        self.cmbPolygonLayer.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+        self.cmbPolygonLayer.setFilters(QgsMapLayerProxyModel.Filter.PolygonLayer)
         self.cmbPolygonLayer.setAllowEmptyLayer(True)
 
         self.lblTileWarning = QLabel("")
@@ -208,7 +208,7 @@ class ClimateTilesDialog(QDialog):
         layout.addWidget(QLabel(self.tr("Carpeta de salida")), 0, 0)
         self.txtOutputFolder = QgsFileWidget()
         self.txtOutputFolder.setObjectName("txtOutputFolder")
-        self.txtOutputFolder.setStorageMode(QgsFileWidget.GetDirectory)
+        self.txtOutputFolder.setStorageMode(QgsFileWidget.StorageMode.GetDirectory)
         layout.addWidget(self.txtOutputFolder, 0, 1)
 
         layout.addWidget(QLabel(self.tr("Prefijo de archivo")), 1, 0)
@@ -277,10 +277,10 @@ class ClimateTilesDialog(QDialog):
         browser.setHtml(help_text.FULL_HELP_HTML)
         layout.addWidget(browser)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(dlg.reject)
         buttons.accepted.connect(dlg.accept)
-        buttons.button(QDialogButtonBox.Close).clicked.connect(dlg.accept)
+        buttons.button(QDialogButtonBox.StandardButton.Close).clicked.connect(dlg.accept)
         layout.addWidget(buttons)
 
         dlg.exec()
@@ -377,9 +377,9 @@ class ClimateTilesDialog(QDialog):
             reply = QMessageBox.question(
                 self, self.tr("El AOI cruza varios tiles"),
                 self.tr(multi_tile_warning + "\n\n¿Continuar de todas formas?"),
-                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
-            if reply != QMessageBox.Yes:
+            if reply != QMessageBox.StandardButton.Yes:
                 return
 
         try:
@@ -393,7 +393,7 @@ class ClimateTilesDialog(QDialog):
         ssp = self.cmbSsp.currentData() if mode == catalog.MODE_CMIP6 else None
         period = self.cmbPeriod.currentData() if mode == catalog.MODE_CMIP6 else None
 
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.lblStatus.setText(self.tr("Validando disponibilidad..."))
         try:
             plan = batch.build_download_plan(mode, selected_vars, tile_id, model=model, ssp=ssp, period=period)
@@ -425,21 +425,25 @@ class ClimateTilesDialog(QDialog):
                 f"Se van a descargar {len(plan)} archivo(s) (uno por variable).\n"
                 f"Tamaño total estimado: {size_txt}.\n\n¿Continuar?"
             ),
-            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             self.lblStatus.setText(self.tr("Listo"))
             return
 
         clip_mask_layer = polygon_layer if (polygon_layer is not None and self.chkClipToPolygon.isChecked()) else None
         target_crs = self.crsSelector.crs()
 
+        target_output_folder = output_folder
+        if mode == catalog.MODE_CMIP6:
+            target_output_folder = batch.get_cmip6_output_folder(output_folder, model, period, ssp)
+
         self._set_download_in_progress(True)
         self.progressBar.setValue(0)
         self.lblStatus.setText(self.tr("Iniciando descarga..."))
 
         self._worker = ClimateTileWorker(
-            plan=plan, output_folder=output_folder, name_prefix=name_prefix,
+            plan=plan, output_folder=target_output_folder, name_prefix=name_prefix,
             clip_mask_layer=clip_mask_layer, target_crs=target_crs, parent=self,
         )
         self._worker.sig_progress.connect(self._on_worker_progress)
@@ -512,9 +516,9 @@ class ClimateTilesDialog(QDialog):
                 reply = QMessageBox.question(
                     self, self.tr("Descarga en curso"),
                     self.tr("Hay una descarga en curso. ¿Deseas cancelarla y cerrar la ventana?"),
-                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
-                if reply != QMessageBox.Yes:
+                if reply != QMessageBox.StandardButton.Yes:
                     event.ignore()
                     return
                 self._close_requested = True

@@ -14,10 +14,10 @@ ICONS_DIR = os.path.join(os.path.dirname(__file__), "icons")
 # no está presente en icons/ (por ejemplo, si el paquete se distribuyó
 # sin esa carpeta). Así el diálogo nunca falla por un ícono faltante.
 _FALLBACK_STYLE_ICONS = {
-    "search.svg": QStyle.SP_FileDialogContentsView,
-    "download.svg": QStyle.SP_ArrowDown,
-    "cancel.svg": QStyle.SP_DialogCancelButton,
-    "gbif.svg": QStyle.SP_DriveNetIcon,
+    "search.svg": QStyle.StandardPixmap.SP_FileDialogContentsView,
+    "download.svg": QStyle.StandardPixmap.SP_ArrowDown,
+    "cancel.svg": QStyle.StandardPixmap.SP_DialogCancelButton,
+    "gbif.svg": QStyle.StandardPixmap.SP_DriveNetIcon,
 }
 
 

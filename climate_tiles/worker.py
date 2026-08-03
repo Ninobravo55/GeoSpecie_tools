@@ -17,6 +17,7 @@ import threading
 
 import requests
 from qgis.PyQt.QtCore import QThread, pyqtSignal
+from qgis.core import QgsMessageLog, Qgis
 
 from . import batch, geodata_api
 
@@ -68,8 +69,12 @@ class ClimateTileWorker(QThread):
         if session is not None:
             try:
                 session.close()
-            except Exception:
-                pass
+            except Exception as err:
+                QgsMessageLog.logMessage(
+                    f"Error cerrando sesion HTTP en cancelacion: {err}",
+                    "GeoSpeciesTools",
+                    Qgis.MessageLevel.Info
+                )
 
     def _is_canceled(self):
         return self._cancel_event.is_set()
@@ -112,8 +117,12 @@ class ClimateTileWorker(QThread):
             if session is not None:
                 try:
                     session.close()
-                except Exception:
-                    pass
+                except Exception as err:
+                    QgsMessageLog.logMessage(
+                        f"Error cerrando sesion HTTP de descarga: {err}",
+                        "GeoSpeciesTools",
+                        Qgis.MessageLevel.Info
+                    )
 
     def _clip_results(self, results):
         import os
@@ -131,9 +140,14 @@ class ClimateTileWorker(QThread):
                 
                 # Eliminar el tile original después de recortar exitosamente
                 try:
-                    os.remove(item["path"])
-                except Exception:
-                    pass
+                    if os.path.exists(item["path"]):
+                        os.remove(item["path"])
+                except OSError as err:
+                    QgsMessageLog.logMessage(
+                        f"No se pudo eliminar tile temporal sin recortar: {err}",
+                        "GeoSpeciesTools",
+                        Qgis.MessageLevel.Warning
+                    )
                 
                 item["path"] = final_path
             except clip.ClipError as exc:

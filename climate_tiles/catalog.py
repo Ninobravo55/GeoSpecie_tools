@@ -9,7 +9,7 @@ Separación deliberada de variables por modo: WorldClim (histórico) y
 CMIP6 (proyección) NO comparten el mismo set de variables. Mezclarlas
 en un único checklist permite armar combinaciones que no existen en el
 servidor (ver conversación: cmip6_tile/cmip6_world en R solo aceptan
-tmin/tmax/prec/bioc -- wind, srad, tavg y vapr son exclusivos del
+tmin/tmax/prec/bioc -- wind, srad y tavg son exclusivos del
 histórico).
 """
 
@@ -48,8 +48,6 @@ VARIABLES = {
     "tavg":  {"label": "Temperatura promedio (tavg)",   "historical": True,  "cmip6": False},
     "wind":  {"label": "Velocidad del viento (wind)",   "historical": True,  "cmip6": False},
     "srad":  {"label": "Radiación solar (srad)",        "historical": True,  "cmip6": False},
-    "vapr":  {"label": "Presión de vapor (vapr)",       "historical": True,  "cmip6": False},
-    "elev":  {"label": "Elevación (elev)",               "historical": True,  "cmip6": False},
 }
 
 

@@ -27,4 +27,4 @@ except ImportError:
     # __init__.py. Este try/except aísla ese acoplamiento legítimo para
     # que no bloquee los módulos que sí son puros (relevante para poder
     # correr tests/ con pytest fuera de QGIS).
-    pass
+    batch = None  # noqa: F401

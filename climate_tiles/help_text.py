@@ -28,7 +28,7 @@ FULL_HELP_HTML = f"""
 <h3>Histórico — WorldClim 2.1 Baseline</h3>
 <p>
 Promedios climáticos mensuales (temperatura mínima, máxima y promedio,
-precipitación, radiación solar, velocidad del viento, presión de vapor)
+precipitación, radiación solar y velocidad del viento)
 correspondientes al periodo <b>1970–2000</b>, más 19 variables
 bioclimáticas derivadas de esos promedios. Es la línea base contra la
 que se comparan las proyecciones CMIP6 -- ambos productos comparten la

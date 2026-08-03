@@ -157,3 +157,16 @@ def run_tile_downloads(plan, output_folder, name_prefix, status_cb=None,
             results.append({"var": var, "path": None, "error": str(exc), "canceled": False})
 
     return results
+
+
+def get_cmip6_output_folder(base_folder, model, period, ssp):
+    """
+    Construye la estructura de subcarpetas jerárquica para proyecciones CMIP6:
+    <base_folder>/<model>/<period>/ssp<ssp>
+    """
+    if not (model and period and ssp):
+        return base_folder
+    ssp_str = str(ssp)
+    ssp_folder = ssp_str if ssp_str.lower().startswith("ssp") else f"ssp{ssp_str}"
+    return os.path.join(base_folder, str(model), str(period), ssp_folder)
+

@@ -141,15 +141,13 @@ WINDOW_CONTEXT_HELP_HINT = _resolve_qt_enum(
 def qprocess_merged_channels():
     """
     Devuelve la constante `MergedChannels` apropiada para la versión de
-    PyQt en uso. Se resuelve en tiempo de llamada para no fallar al
-    importar el módulo si QProcess no estuviera disponible por algún
-    motivo (ej. entornos QGIS-server headless).
+    PyQt en uso.
     """
     from qgis.PyQt.QtCore import QProcess
-    enum_ns = getattr(QProcess, 'ProcessChannelMode', None)
-    if enum_ns is not None and hasattr(enum_ns, 'MergedChannels'):
-        return enum_ns.MergedChannels  # PyQt6
-    return QProcess.MergedChannels  # PyQt5
+    try:
+        return QProcess.ProcessChannelMode.MergedChannels
+    except AttributeError:
+        return getattr(QProcess, 'MergedChannels')
 
 
 # ---------------------------------------------------------------------------

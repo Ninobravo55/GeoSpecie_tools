@@ -24,9 +24,12 @@ OTRO hilo para abortar una petición en curso — es la técnica que permite
 que "Cancelar" no tenga que esperar a que expire un timeout de 60s.
 """
 
+import logging
 import time
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # Constantes API GBIF
@@ -367,8 +370,8 @@ def search_occurrences(params, max_records, progress_cb=None, status_cb=None,
         if owns_session:
             try:
                 session.close()
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Error cerrando sesion HTTP GBIF: %s", err)
 
     return records[:max_records]
 

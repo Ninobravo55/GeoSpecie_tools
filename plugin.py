@@ -78,6 +78,14 @@ class GeoSpeciesToolsPlugin:
         self.action_gbif_download.triggered.connect(self.run_gbif_download)
         self.menu_biodiversidad.addAction(self.action_gbif_download)
 
+        # ── Submenú: Machine Learning ──────────────────────────────────
+        self.menu_machine_learning = self.main_menu.addMenu(self.icon, '🤖 Machine Learning')
+
+        self.action_random_forest = QAction(self.icon, 'Random Forest', self.iface.mainWindow())
+        self.action_random_forest.setObjectName('geospecies_random_forest')
+        self.action_random_forest.triggered.connect(self.run_random_forest)
+        self.menu_machine_learning.addAction(self.action_random_forest)
+
         # ── Submenú: Modelamiento MaxEnt ──────────────────────────────
         self.menu_modelamiento = self.main_menu.addMenu(self.icon, '📊 Modelamiento MaxEnt')
 
@@ -126,6 +134,7 @@ class GeoSpeciesToolsPlugin:
         # Mapeo pkg_install_name -> import_name real
         REQUIRED = {
             'earthengine-api': 'ee',
+            'scikit-learn': 'sklearn',
         }
         missing, installed = [], []
 
@@ -312,4 +321,16 @@ class GeoSpeciesToolsPlugin:
             QMessageBox.critical(
                 self.iface.mainWindow(), "GeoSpecies Tools — Error",
                 f"No se pudo abrir la herramienta Limpieza de especies MaxEnt:\n{str(e)}"
+            )
+
+    def run_random_forest(self):
+        """Abre el diálogo interactivo para la herramienta Random Forest."""
+        try:
+            from .random_forest.dialog import RandomForestDialog
+            dlg = RandomForestDialog(iface=self.iface, parent=self.iface.mainWindow())
+            dialog_exec(dlg)
+        except Exception as e:
+            QMessageBox.critical(
+                self.iface.mainWindow(), "GeoSpecies Tools — Error",
+                f"No se pudo abrir la herramienta Random Forest:\n{str(e)}"
             )

@@ -64,7 +64,7 @@ class UniformizarRasterCmip6AsciiAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterFile(
                 self.IN_FOLDER,
                 self.tr('Directorio CMIP6'),
-                behavior=QgsProcessingParameterFile.Folder,
+                behavior=QgsProcessingParameterFile.Behavior.Folder,
             )
         )
         self.addParameter(

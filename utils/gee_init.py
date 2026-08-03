@@ -47,7 +47,7 @@ def is_initialized():
 
 class GEEInitTask(QgsTask):
     def __init__(self, force=False):
-        super().__init__("Inicializando Earth Engine (GeoSpecies)", QgsTask.CanCancel)
+        super().__init__("Inicializando Earth Engine (GeoSpecies)", QgsTask.Flag.CanCancel)
         self.force = force
         self.exception = None
 
@@ -69,11 +69,11 @@ class GEEInitTask(QgsTask):
 
     def finished(self, result):
         if result:
-            QgsMessageLog.logMessage("GEE Inicializado silenciosamente en segundo plano.", "GeoSpeciesTools", Qgis.Success)
+            QgsMessageLog.logMessage("GEE Inicializado silenciosamente en segundo plano.", "GeoSpeciesTools", Qgis.MessageLevel.Success)
         else:
             QgsMessageLog.logMessage(
                 f"Fallo al inicializar GEE en segundo plano (puede requerir autenticación): {self.exception}",
-                "GeoSpeciesTools", Qgis.Warning)
+                "GeoSpeciesTools", Qgis.MessageLevel.Warning)
 
 
 def background_gee_initialize(force=False):
@@ -81,5 +81,9 @@ def background_gee_initialize(force=False):
     try:
         task = GEEInitTask(force=force)
         QgsApplication.taskManager().addTask(task)
-    except Exception:
-        pass
+    except Exception as err:
+        QgsMessageLog.logMessage(
+            f"No se pudo registrar la tarea de inicialización de GEE: {err}",
+            "GeoSpeciesTools",
+            Qgis.MessageLevel.Info
+        )

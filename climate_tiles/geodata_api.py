@@ -17,10 +17,13 @@ en github.com/rspatial/geodata/issues/81, no inventadas ni adivinadas:
   usuario y este módulo hace el remapeo correcto para cada caso.)
 """
 
+import logging
 import os
 import time
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 WORLDCLIM_BASE_URL = "https://geodata.ucdavis.edu/climate/worldclim/2_1/"
 CMIP6_BASE_URL = "https://geodata.ucdavis.edu/cmip6/"
@@ -259,8 +262,8 @@ def download_tile(url, output_path, session=None, cancel_check=None,
         if owns_session:
             try:
                 session.close()
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Error cerrando sesion HTTP: %s", err)
 
 
 def _cleanup_partial(tmp_path):
@@ -268,5 +271,5 @@ def _cleanup_partial(tmp_path):
     try:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
-    except OSError:
-        pass
+    except OSError as err:
+        logger.debug("No se pudo eliminar archivo temporal %s: %s", tmp_path, err)

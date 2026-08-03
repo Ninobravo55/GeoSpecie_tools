@@ -23,6 +23,7 @@ import threading
 
 import requests
 from qgis.PyQt.QtCore import QThread, pyqtSignal
+from qgis.core import QgsMessageLog, Qgis
 
 from . import batch, gbif_api, exporter
 
@@ -82,8 +83,12 @@ class GbifDownloadWorker(QThread):
         if session is not None:
             try:
                 session.close()
-            except Exception:
-                pass
+            except Exception as err:
+                QgsMessageLog.logMessage(
+                    f"Error cerrando sesion HTTP GBIF en cancelacion: {err}",
+                    "GeoSpeciesTools",
+                    Qgis.MessageLevel.Info
+                )
 
     def _is_canceled(self):
         return self._cancel_event.is_set()
@@ -128,5 +133,9 @@ class GbifDownloadWorker(QThread):
             if session is not None:
                 try:
                     session.close()
-                except Exception:
-                    pass
+                except Exception as err:
+                    QgsMessageLog.logMessage(
+                        f"Error cerrando sesion HTTP GBIF al finalizar: {err}",
+                        "GeoSpeciesTools",
+                        Qgis.MessageLevel.Info
+                    )
