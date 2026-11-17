@@ -22,7 +22,7 @@ _AUTH_HELP_MSG = (
 
 def ensure_gee_initialized(feedback=None, force=False):
     import ee
-    if not force and getattr(ee.data, '_credentials', None) is not None:
+    if not force and ee.data.is_initialized():
         return
     if feedback is not None:
         feedback.pushInfo("Inicializando Google Earth Engine...")
@@ -40,7 +40,7 @@ def ensure_gee_initialized(feedback=None, force=False):
 def is_initialized():
     try:
         import ee
-        return getattr(ee.data, '_credentials', None) is not None
+        return ee.data.is_initialized()
     except ImportError:
         return False
 
@@ -54,7 +54,7 @@ class GEEInitTask(QgsTask):
     def run(self):
         try:
             import ee
-            if not self.force and getattr(ee.data, '_credentials', None) is not None:
+            if not self.force and ee.data.is_initialized():
                 return True
             settings = QgsSettings()
             project_id = settings.value(SETTINGS_KEY_PROJECT, '', type=str)

@@ -27,12 +27,14 @@ class MaxentAnalysisWorker(QThread):
     sig_finished = pyqtSignal(list)
     sig_error = pyqtSignal(str)
 
-    def __init__(self, csv_path, carpeta_maxent, output_root, threshold_criterion, parent=None):
+    def __init__(self, csv_path, carpeta_maxent, output_root, threshold_criterion,
+                 target_crs=None, parent=None):
         super().__init__(parent)
         self.csv_path = csv_path
         self.carpeta_maxent = carpeta_maxent
         self.output_root = output_root
         self.threshold_criterion = threshold_criterion
+        self.target_crs = target_crs
         self._cancel_event = threading.Event()
 
     def request_cancel(self):
@@ -50,6 +52,7 @@ class MaxentAnalysisWorker(QThread):
 
             results = batch.run_batch(
                 self.csv_path, self.carpeta_maxent, self.output_root, self.threshold_criterion,
+                target_crs=self.target_crs,
                 status_cb=self.sig_status.emit, progress_cb=_progress_cb, cancel_check=self._is_canceled,
             )
             self.sig_finished.emit(results)

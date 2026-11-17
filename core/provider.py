@@ -9,6 +9,8 @@ from .uniformizar_raster import UniformizarRasterAlgorithm
 from .uniformizar_raster_cmip6_ascii import UniformizarRasterCmip6AsciiAlgorithm
 from .uniformizar_raster_worldclim import UniformizarRasterWorldClimAlgorithm
 from .limpieza_especies_maxent import LimpiezaEspeciesMaxEntAlgorithm
+from ..current_climate import VariablesClimaticasActualesAlgorithm
+from .suelo_inia_peru import SueloIniaPeruAlgorithm
 
 # RandomForestAlgorithm (vía random_forest/algorithm.py -> charts.py) importa
 # matplotlib a nivel de módulo. Si al usuario le falta esa dependencia, antes
@@ -23,6 +25,15 @@ except ImportError as e:
     RandomForestAlgorithm = None
     _RANDOM_FOREST_IMPORT_ERROR = str(e)
 
+# VariableSelectionAlgorithm (vía variable_selection/charts.py) también
+# importa matplotlib a nivel de módulo, por lo que se aísla igual que
+# Random Forest: si falta matplotlib solo se deshabilita esta herramienta.
+try:
+    from ..variable_selection import VariableSelectionAlgorithm
+except ImportError as e:
+    VariableSelectionAlgorithm = None
+    _VARIABLE_SELECTION_IMPORT_ERROR = str(e)
+
 
 class GeoSpeciesProvider(QgsProcessingProvider):
     def __init__(self):
@@ -32,11 +43,13 @@ class GeoSpeciesProvider(QgsProcessingProvider):
         self.addAlgorithm(WorldClimBioAlgorithm())
         self.addAlgorithm(WorldClimClimatologyAlgorithm())
         self.addAlgorithm(SoilGridsIsricAlgorithm())
+        self.addAlgorithm(SueloIniaPeruAlgorithm())
         self.addAlgorithm(TopografiaTerrenoAlgorithm())
         self.addAlgorithm(UniformizarRasterAlgorithm())
         self.addAlgorithm(UniformizarRasterCmip6AsciiAlgorithm())
         self.addAlgorithm(UniformizarRasterWorldClimAlgorithm())
         self.addAlgorithm(LimpiezaEspeciesMaxEntAlgorithm())
+        self.addAlgorithm(VariablesClimaticasActualesAlgorithm())
         if RandomForestAlgorithm is not None:
             self.addAlgorithm(RandomForestAlgorithm())
         else:
@@ -45,6 +58,17 @@ class GeoSpeciesProvider(QgsProcessingProvider):
                 f"{_RANDOM_FOREST_IMPORT_ERROR}). Instale matplotlib/scikit-learn "
                 f"desde 'Instalación dependencias GEE' para habilitarlo. El resto "
                 f"de herramientas de GeoSpecies Tools no se ven afectadas.",
+                'GeoSpecies Tools', Qgis.MessageLevel.Warning
+            )
+
+        if VariableSelectionAlgorithm is not None:
+            self.addAlgorithm(VariableSelectionAlgorithm())
+        else:
+            QgsMessageLog.logMessage(
+                f"Selección de Variables no está disponible (falta una dependencia: "
+                f"{_VARIABLE_SELECTION_IMPORT_ERROR}). Instale matplotlib desde "
+                f"'Instalación dependencias GEE' para habilitarlo. El resto de "
+                f"herramientas de GeoSpecies Tools no se ven afectadas.",
                 'GeoSpecies Tools', Qgis.MessageLevel.Warning
             )
 

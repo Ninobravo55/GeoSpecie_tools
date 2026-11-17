@@ -1,7 +1,4 @@
 import os
-import urllib.request
-import urllib.error
-import processing
 
 from qgis.core import (
     QgsProcessing,
@@ -19,6 +16,7 @@ from qgis.PyQt.QtCore import QCoreApplication
 
 from ..utils.aoi_builder import build_aoi, to_ee_geometry, safe_simplify
 from ..utils.gee_init import ensure_gee_initialized
+from ..utils.gee_tiled_download import download_band_local, estimate_tile_count, announce_grid_plan
 
 
 GEE_DEMS = [
@@ -207,26 +205,38 @@ class TopografiaTerrenoAlgorithm(QgsProcessingAlgorithm):
                      .mosaic()
                      .select(dem_info['band']))
         
-        # Reproyectar a CRS destino
-        img_reproj = img.clip(aoi_ee).reproject(crs=crs, scale=dem_info['scale'])
+        # Reproyectar a CRS destino. .toFloat() es necesario aquí (y no solo
+        # cosmético): el estimador de tamaño de la grilla en
+        # gee_tiled_download.py asume 4 bytes/píxel (Float32) para TODAS las
+        # herramientas. Varios DEM de este catálogo (SRTM, NASADEM, ALOS) son
+        # Int16 nativos en GEE — sin este cast la estimación de celdas queda
+        # sobredimensionada (nunca subestimada: se generan más celdas de las
+        # estrictamente necesarias, más lento pero nunca falla).
+        img_reproj = img.clip(aoi_ee).reproject(crs=crs, scale=dem_info['scale']).toFloat()
 
-        # ── Descarga Local del DEM ────────────────────────────────────
+        # ── Descarga Local del DEM ────────────────────────────────────────
+        import processing
+
         os.makedirs(out_folder, exist_ok=True)
         dem_path = os.path.join(out_folder, "DEM.tif")
 
+        n_cells = estimate_tile_count(ee, aoi_ee, scale_m=dem_info['scale'])
+        announce_grid_plan(feedback, n_cells)
+
         feedback.pushInfo("Descargando el DEM base desde Google Earth Engine...")
-        try:
-            url = img_reproj.getDownloadURL({
-                'name': 'DEM',
-                'scale': dem_info['scale'],
-                'crs': crs,
-                'region': aoi_ee,
-                'format': 'GEO_TIFF'
-            })
-            urllib.request.urlretrieve(url, dem_path)  # nosec
-            feedback.pushInfo("✓ DEM descargado correctamente.")
-        except Exception as e:
-            raise QgsProcessingException(f"Error al descargar DEM desde GEE: {str(e)}\nPosiblemente el área sea demasiado grande.")
+        ok = download_band_local(
+            ee, img_reproj, dem_info['band'], aoi_ee, crs,
+            scale=dem_info['scale'],
+            out_folder=out_folder,
+            filepath=dem_path,
+            feedback=feedback,
+        )
+        if not ok:
+            raise QgsProcessingException(
+                "No se pudo descargar el DEM desde GEE. "
+                "Revisa los mensajes anteriores para el detalle del error."
+            )
+        feedback.pushInfo("✓ DEM descargado correctamente.")
 
         # ── Definir salidas ───────────────────────────────────────────
         slope = os.path.join(out_folder, "Slope_porcentaje.tif")

@@ -19,8 +19,6 @@ en github.com/rspatial/geodata/issues/81, no inventadas ni adivinadas:
 
 import logging
 import os
-import time
-
 import requests
 
 logger = logging.getLogger(__name__)

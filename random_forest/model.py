@@ -14,7 +14,6 @@ import csv
 import logging
 import math
 import os
-import random
 import numpy as np
 from osgeo import gdal, osr
 

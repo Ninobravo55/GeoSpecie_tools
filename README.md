@@ -1,7 +1,7 @@
 # GeoSpecies Tools
 
 ![QGIS Plugin](https://img.shields.io/badge/QGIS-Plugin-green.svg)
-![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
 
 ## Español 🇪🇸
 

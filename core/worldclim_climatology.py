@@ -14,6 +14,7 @@ from qgis.PyQt.QtCore import QCoreApplication
 
 from ..utils.aoi_builder import build_aoi, to_ee_geometry, safe_simplify
 from ..utils.gee_init import ensure_gee_initialized
+from ..utils.gee_tiled_download import download_band_local, estimate_tile_count, announce_grid_plan
 
 
 class WorldClimClimatologyAlgorithm(QgsProcessingAlgorithm):
@@ -192,26 +193,29 @@ class WorldClimClimatologyAlgorithm(QgsProcessingAlgorithm):
     # ------------------------------------------------------------------
 
     def _export_local(self, ee, imagen, bandas, aoi, crs, out_folder, feedback):
-        import urllib.request, urllib.error
+        """Descarga directa de cada banda como GeoTIFF local.
 
+        Si el área es grande para un solo request de GEE, se divide
+        automáticamente en una grilla de celdas, se descargan por
+        separado y se ensambla un mosaico (ver utils/gee_tiled_download.py).
+        """
         os.makedirs(out_folder, exist_ok=True)
+
+        n_cells = estimate_tile_count(ee, aoi, scale_m=1000)
+        announce_grid_plan(feedback, n_cells, n_variables=len(bandas))
+
         for banda in bandas:
             if feedback.isCanceled():
                 break
             feedback.pushInfo(f"  Descargando {banda} ...")
             filepath = os.path.join(out_folder, f"{banda}.tif")
-            try:
-                url = imagen.select(banda).getDownloadURL({
-                    'name'   : banda,
-                    'scale'  : 1000,
-                    'crs'    : crs,
-                    'region' : aoi,
-                    'format' : 'GEO_TIFF',
-                })
-                urllib.request.urlretrieve(url, filepath)  # nosec
-                feedback.pushInfo(f"    ✓ Guardado: {filepath}")
-            except Exception as e:
-                feedback.reportError(f"    ✗ Error en {banda}: {str(e)}")
+            download_band_local(
+                ee, imagen, banda, aoi, crs,
+                scale=1000,
+                out_folder=out_folder,
+                filepath=filepath,
+                feedback=feedback,
+            )
 
     def _export_drive(self, ee, imagen, bandas, aoi, crs, out_folder, feedback):
         folder_name = os.path.basename(out_folder.rstrip('/\\')) or "WorldClim_Annual"

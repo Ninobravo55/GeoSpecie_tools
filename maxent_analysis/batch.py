@@ -67,7 +67,7 @@ def _species_output_dirs(output_root, species_base):
 
 
 def process_species(group, carpeta_maxent, output_root, threshold_criterion,
-                     max_response_curves=10, status_cb=None):
+                    target_crs=None, max_response_curves=10, status_cb=None):
     """
     Procesa UNA especie (una entrada de reader.group_species_rows).
 
@@ -100,6 +100,19 @@ def process_species(group, carpeta_maxent, output_root, threshold_criterion,
     os.makedirs(dirs["figuras"], exist_ok=True)
     os.makedirs(dirs["raster"], exist_ok=True)
     os.makedirs(dirs["vector"], exist_ok=True)
+
+    # --- Exportar raster continuo sin clasificar a GeoTIFF ---
+    _status("Exportando raster continuo sin clasificar (GeoTIFF)")
+    continuo_tif_path = os.path.join(dirs["raster"], "Habitat_Potencial_Continuo.tif")
+    base_raster_for_ops = raster_path
+    try:
+        continuo_tif_path = raster_ops.copy_raster_as_tif(
+            raster_path, continuo_tif_path, target_crs_authid=target_crs
+        )
+        result.outputs["Raster continuo"] = continuo_tif_path
+        base_raster_for_ops = continuo_tif_path
+    except raster_ops.RasterOpsError as exc:
+        result.warnings.append(f"No se pudo exportar el raster continuo a GeoTIFF: {exc}")
 
     # --- Tabla AUC ---
     _status("Exportando Datos_AUC.csv")
@@ -194,11 +207,18 @@ def process_species(group, carpeta_maxent, output_root, threshold_criterion,
         _status("Generando raster binario")
         try:
             binario_path = raster_ops.make_binary_raster(
-                raster_path, threshold_value, os.path.join(dirs["raster"], "Modelo_Binario.tif"))
+                base_raster_for_ops, threshold_value, os.path.join(dirs["raster"], "Modelo_Binario.tif"))
             result.outputs["Raster binario"] = binario_path
 
             vector_binario = raster_ops.polygonize(
                 binario_path, "VALUE", os.path.join(dirs["vector"], "Distribucion_Potencial.gpkg"))
+
+            # Agregar campo area_ha al vector binario
+            try:
+                raster_ops.add_area_field(vector_binario)
+            except raster_ops.RasterOpsError as exc:
+                result.warnings.append(f"No se pudo añadir campo area_ha a Distribucion_Potencial.gpkg: {exc}")
+
             result.outputs["Vector distribución potencial"] = vector_binario
 
             try:
@@ -217,7 +237,7 @@ def process_species(group, carpeta_maxent, output_root, threshold_criterion,
     _status("Generando clasificación de hábitat")
     try:
         clasificado_path = raster_ops.make_habitat_classification_raster(
-            raster_path, os.path.join(dirs["raster"], "Habitat_Potencial.tif"))
+            base_raster_for_ops, os.path.join(dirs["raster"], "Habitat_Potencial.tif"))
         result.outputs["Raster clasificado"] = clasificado_path
 
         try:
@@ -231,9 +251,31 @@ def process_species(group, carpeta_maxent, output_root, threshold_criterion,
         vector_clases = raster_ops.polygonize(
             clasificado_path, "Clase", os.path.join(dirs["vector"], "Habitat_Potencial.gpkg"))
 
+        # Agregar campo Descripcion con nombre de hábitat y campo area_ha
+        try:
+            raster_ops.add_description_field(vector_clases)
+        except raster_ops.RasterOpsError as exc:
+            result.warnings.append(f"No se pudo añadir campo Descripcion a Habitat_Potencial.gpkg: {exc}")
+
+        try:
+            raster_ops.add_area_field(vector_clases)
+        except raster_ops.RasterOpsError as exc:
+            result.warnings.append(f"No se pudo añadir campo area_ha a Habitat_Potencial.gpkg: {exc}")
+
         vector_disuelto = raster_ops.dissolve_by_field(
             vector_clases, "Clase", os.path.join(dirs["vector"], "Habitat_Potencial_Disuelto.gpkg"))
         result.outputs["Vector hábitat disuelto"] = vector_disuelto
+
+        # Agregar campo Descripcion y campo area_ha al vector disuelto
+        try:
+            raster_ops.add_description_field(vector_disuelto)
+        except raster_ops.RasterOpsError as exc:
+            result.warnings.append(f"No se pudo añadir campo Descripcion a Habitat_Potencial_Disuelto.gpkg: {exc}")
+
+        try:
+            raster_ops.add_area_field(vector_disuelto)
+        except raster_ops.RasterOpsError as exc:
+            result.warnings.append(f"No se pudo añadir campo area_ha a Habitat_Potencial_Disuelto.gpkg: {exc}")
 
         _status("Calculando áreas por clase")
         areas = raster_ops.compute_areas_by_feature(vector_disuelto, extra_fields=["Clase"])
@@ -307,7 +349,7 @@ def process_species(group, carpeta_maxent, output_root, threshold_criterion,
 
 
 def run_batch(csv_path, carpeta_maxent, output_root, threshold_criterion=catalog.DEFAULT_THRESHOLD_CRITERION,
-              status_cb=None, progress_cb=None, cancel_check=None):
+              target_crs=None, status_cb=None, progress_cb=None, cancel_check=None):
     """
     Procesa TODAS las especies de `csv_path` (agrupadas por
     reader.group_species_rows) y escribe el resumen global + log.
@@ -338,7 +380,8 @@ def run_batch(csv_path, carpeta_maxent, output_root, threshold_criterion=catalog
             progress_cb(i, len(groups))
 
         try:
-            result = process_species(group, carpeta_maxent, output_root, threshold_criterion, status_cb=status_cb)
+            result = process_species(group, carpeta_maxent, output_root, threshold_criterion,
+                                     target_crs=target_crs, status_cb=status_cb)
         except Exception as exc:  # noqa: BLE001 - una especie no debe tumbar el resto del batch
             result = SpeciesResult(group["species_base"])
             result.error = f"Error inesperado: {exc}"

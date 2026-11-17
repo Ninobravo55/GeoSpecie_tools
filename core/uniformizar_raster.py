@@ -185,7 +185,7 @@ class UniformizarRasterAlgorithm(QgsProcessingAlgorithm):
             shutil.rmtree(temp_folder)
             feedback.pushInfo("✓ Carpeta temporal eliminada.")
         except Exception as e:
-            feedback.pushInfo(f"⚠ No se pudo eliminar la carpeta temporal automáticamente (archivos en uso). Puede borrarla manualmente: {temp_folder}")
+            feedback.pushInfo(f"⚠ No se pudo eliminar la carpeta temporal automáticamente (archivos en uso): {e}. Puede borrarla manualmente: {temp_folder}")
 
         feedback.pushInfo("================================")
         feedback.pushInfo(f"Proceso finalizado. Archivos guardados en: {out_folder}")

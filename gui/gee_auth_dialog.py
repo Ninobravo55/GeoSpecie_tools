@@ -23,7 +23,7 @@ class GEEAuthTask(QgsTask):
     def run(self):
         try:
             import ee
-            ee.Authenticate()
+            ee.Authenticate(auth_mode='localhost')
             kwargs = {}
             if self.project_id:
                 kwargs['project'] = self.project_id
@@ -151,7 +151,7 @@ class GEEAuthDialog(QDialog):
     def _check_gee_status(self):
         try:
             import ee
-            if getattr(ee.data, '_credentials', None) is not None:
+            if ee.data.is_initialized():
                 return True
             import os
             try:

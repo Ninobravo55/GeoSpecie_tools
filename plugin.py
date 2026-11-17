@@ -60,6 +60,11 @@ class GeoSpeciesToolsPlugin:
         self.action_soilgrids_isric.triggered.connect(self.run_soilgrids_isric)
         self.menu_variables.addAction(self.action_soilgrids_isric)
 
+        self.action_suelo_inia_peru = QAction(self.icon, 'Variables de Suelo INIA - Perú', self.iface.mainWindow())
+        self.action_suelo_inia_peru.setObjectName('geospecies_suelo_inia_peru')
+        self.action_suelo_inia_peru.triggered.connect(self.run_suelo_inia_peru)
+        self.menu_variables.addAction(self.action_suelo_inia_peru)
+
         self.action_topografia_terreno = QAction(self.icon, 'Topografía Terreno', self.iface.mainWindow())
         self.action_topografia_terreno.setObjectName('geospecies_topografia_terreno')
         self.action_topografia_terreno.triggered.connect(self.run_topografia_terreno)
@@ -69,6 +74,11 @@ class GeoSpeciesToolsPlugin:
         self.action_climate_tiles.setObjectName('geospecies_climate_tiles')
         self.action_climate_tiles.triggered.connect(self.run_climate_tiles_download)
         self.menu_variables.addAction(self.action_climate_tiles)
+
+        self.action_current_climate = QAction(self.icon, 'Variables Climáticas Actuales (GEE)', self.iface.mainWindow())
+        self.action_current_climate.setObjectName('geospecies_variables_climaticas_actuales')
+        self.action_current_climate.triggered.connect(self.run_current_climate)
+        self.menu_variables.addAction(self.action_current_climate)
 
         # ── Submenú: Biodiversidad ─────────────────────────────────────
         self.menu_biodiversidad = self.main_menu.addMenu(self.icon, '🐾 Biodiversidad')
@@ -117,6 +127,11 @@ class GeoSpeciesToolsPlugin:
         self.action_uniformizar_raster_worldclim.triggered.connect(self.run_uniformizar_raster_worldclim)
         self.menu_preparacion.addAction(self.action_uniformizar_raster_worldclim)
 
+        self.action_seleccion_variables = QAction(self.icon, 'Selección de Variables (Colinealidad)', self.iface.mainWindow())
+        self.action_seleccion_variables.setObjectName('geospecies_seleccion_variables')
+        self.action_seleccion_variables.triggered.connect(self.run_seleccion_variables)
+        self.menu_preparacion.addAction(self.action_seleccion_variables)
+
         # Init GEE en segundo plano si ya está autenticado
         from .utils.gee_init import background_gee_initialize
         background_gee_initialize()
@@ -135,6 +150,14 @@ class GeoSpeciesToolsPlugin:
         REQUIRED = {
             'earthengine-api': 'ee',
             'scikit-learn': 'sklearn',
+        }
+        # Piso de version minima probado por GeoSpecies Tools. Sin esto,
+        # 'pip install earthengine-api' siempre trae la ultima version
+        # publicada por Google, y un cambio de API futuro rompe el plugin
+        # en silencio para todo usuario nuevo al mismo tiempo. Ajustar este
+        # piso cuando se valide una version mas reciente contra el plugin.
+        PIP_SPECS = {
+            'earthengine-api': 'earthengine-api>=1.5.0',
         }
         missing, installed = [], []
 
@@ -158,7 +181,8 @@ class GeoSpeciesToolsPlugin:
             return
 
         from .gui.install_deps_dialog import InstallDepsDialog
-        dlg = InstallDepsDialog(missing, self.iface.mainWindow(), installed_deps=installed)
+        missing_specs = [PIP_SPECS.get(pkg, pkg) for pkg in missing]
+        dlg = InstallDepsDialog(missing_specs, self.iface.mainWindow(), installed_deps=installed)
         dlg.exec()
 
 
@@ -268,6 +292,17 @@ class GeoSpeciesToolsPlugin:
                 f"No se pudo abrir la herramienta SoilGrids 250m v2:\n{str(e)}"
             )
 
+    def run_suelo_inia_peru(self):
+        """Abre el diálogo de Processing para Variables de Suelo INIA - Perú."""
+        try:
+            import processing
+            processing.execAlgorithmDialog('geospecies:suelo_inia_peru')
+        except Exception as e:
+            QMessageBox.critical(
+                self.iface.mainWindow(), "GeoSpecies Tools — Error",
+                f"No se pudo abrir la herramienta Variables de Suelo INIA - Perú:\n{str(e)}"
+            )
+
     def run_topografia_terreno(self):
         """Abre el diálogo de Processing para Topografía Terreno."""
         try:
@@ -323,6 +358,26 @@ class GeoSpeciesToolsPlugin:
                 f"No se pudo abrir la herramienta Limpieza de especies MaxEnt:\n{str(e)}"
             )
 
+    def run_seleccion_variables(self):
+        """Abre el diálogo interactivo de Selección de Variables.
+
+        Se usa un QDialog en lugar de execAlgorithmDialog porque la
+        herramienta muestra dendrograma, mapa de calor y tabla de clusters
+        tras ejecutarse, y el diálogo de Processing no permite presentar
+        resultados interactivos. El algoritmo equivalente sigue disponible
+        en la Caja de Herramientas como 'geospecies:seleccion_variables'
+        para uso en modelos y procesamiento por lotes.
+        """
+        try:
+            from .variable_selection.dialog import VariableSelectionDialog
+            dlg = VariableSelectionDialog(iface=self.iface, parent=self.iface.mainWindow())
+            dialog_exec(dlg)
+        except Exception as e:
+            QMessageBox.critical(
+                self.iface.mainWindow(), "GeoSpecies Tools — Error",
+                f"No se pudo abrir la herramienta Selección de Variables:\n{str(e)}"
+            )
+
     def run_random_forest(self):
         """Abre el diálogo interactivo para la herramienta Random Forest."""
         try:
@@ -334,3 +389,16 @@ class GeoSpeciesToolsPlugin:
                 self.iface.mainWindow(), "GeoSpecies Tools — Error",
                 f"No se pudo abrir la herramienta Random Forest:\n{str(e)}"
             )
+
+    def run_current_climate(self):
+        """Abre el diálogo interactivo para Variables Climáticas Actuales (GEE)."""
+        try:
+            from .current_climate.dialog import ClimaticosActualesDialog
+            dlg = ClimaticosActualesDialog(iface=self.iface, parent=self.iface.mainWindow())
+            dialog_exec(dlg)
+        except Exception as e:
+            QMessageBox.critical(
+                self.iface.mainWindow(), "GeoSpecies Tools — Error",
+                f"No se pudo abrir la herramienta Variables Climáticas Actuales (GEE):\n{str(e)}"
+            )
+

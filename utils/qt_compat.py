@@ -11,6 +11,7 @@ Patrones cubiertos:
   3. Qt.WindowContextHelpButtonHint → Qt.WindowType.WindowContextHelpButtonHint
   4. QProcess.MergedChannels → QProcess.ProcessChannelMode.MergedChannels
   5. Qt.AlignCenter, Qt.Horizontal, etc → namespaces de enum
+  6. QAbstractItemView.NoEditTriggers (tablas de solo lectura Qt5/Qt6)
 
 Filosofía:
   - Las constantes se resuelven UNA SOLA VEZ en import-time.
@@ -153,6 +154,17 @@ def qprocess_merged_channels():
 # ---------------------------------------------------------------------------
 # 5. Diagnóstico — útil para debug y para `metadata.txt`
 # ---------------------------------------------------------------------------
+
+
+def edit_triggers_none():
+    """
+    Constante `NoEditTriggers` portable entre Qt5 y Qt6.
+
+    PyQt5 / PyQt6: QAbstractItemView.EditTrigger.NoEditTriggers
+    """
+    from qgis.PyQt.QtWidgets import QAbstractItemView
+    return QAbstractItemView.EditTrigger.NoEditTriggers
+
 
 def qt_backend_info():
     """

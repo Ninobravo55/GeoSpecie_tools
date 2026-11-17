@@ -7,12 +7,12 @@ interactiva de AOI + variables dependientes del modo no encaja bien en
 el modelo de parámetros de Processing), worker en QThread aparte,
 cierre diferido si hay una descarga en curso.
 
-Decisiones ya acordadas con el usuario (no reabrir sin razón nueva):
-- Para polígonos: se descarga SOLO el tile del centroide, no el
-  mosaico de todos los tiles intersectados. Se acepta la limitación,
-  pero se advierte explícitamente si el AOI cruza más de un tile.
-- Resolución fija en 30 arco-segundos (no hay selector de resolución:
-  los tiles solo existen a esa resolución).
+Comportamiento de descarga:
+- Si el AOI cae en un solo tile: se descarga ese tile directamente.
+- Si el AOI abarca 2–4 tiles: se descargan TODOS los tiles, se
+  ensambla un mosaico con gdal:merge y se recorta al polígono real.
+- Resolución fija en 30 arco-segundos (los tiles solo existen a esa
+  resolución).
 - Lista completa de 26 modelos CMIP6 (catalog.CMIP6_MODELS).
 """
 
@@ -43,6 +43,7 @@ from qgis.gui import QgsFileWidget, QgsMapLayerComboBox, QgsProjectionSelectionW
 from qgis.core import QgsMapLayerProxyModel, QgsProject, QgsRasterLayer
 
 from . import batch, catalog, geodata_api, help_text, tiles
+from .tiles import tiles_spanned_by_bbox
 from .geom import centroid_and_bbox_from_layer, GeomError
 from .utils import format_bytes, validate_name_prefix
 from .worker import ClimateTileWorker
@@ -148,9 +149,9 @@ class ClimateTilesDialog(QDialog):
         self.lblTileWarning = QLabel("")
         self.lblTileWarning.setObjectName("lblTileWarning")
         self.lblTileWarning.setWordWrap(True)
-        self.lblTileWarning.setStyleSheet("color: #b45f06;")  # ámbar -- advertencia, no error
+        self.lblTileWarning.setStyleSheet("color: #1a6e9e;")  # azul informativo
 
-        self.chkClipToPolygon = QCheckBox(self.tr("Recortar el tile descargado al polígono real"))
+        self.chkClipToPolygon = QCheckBox(self.tr("Recortar el mosaico descargado al polígono real"))
         self.chkClipToPolygon.setObjectName("chkClipToPolygon")
         self.chkClipToPolygon.setChecked(True)
 
@@ -316,10 +317,11 @@ class ClimateTilesDialog(QDialog):
 
     def _update_tile_warning_preview(self):
         """
-        Muestra de inmediato (sin red, es pura matemática local) si el
-        polígono seleccionado cruza más de un tile -- para que el
-        usuario lo sepa ANTES de tocar 'Descargar', no en la
-        confirmación previa a mitad del flujo.
+        Muestra de inmediato (sin red, es pura matemática local) cuántos
+        tiles abarca el AOI seleccionado, para que el usuario lo sepa
+        ANTES de tocar 'Descargar'. Si el AOI abarca varios tiles se
+        muestra un mensaje informativo (azul) indicando que SE DESCARGARÁN
+        TODOS y se ensamblará un mosaico — ya no es una advertencia.
         """
         if self.rbPoint.isChecked():
             self.lblTileWarning.setText("")
@@ -336,8 +338,21 @@ class ClimateTilesDialog(QDialog):
             self.lblTileWarning.setText("")
             return
 
-        warning = batch.check_multi_tile_warning(bbox)
-        self.lblTileWarning.setText(warning or "")
+        if bbox is None:
+            self.lblTileWarning.setText("")
+            return
+
+        spanned = tiles_spanned_by_bbox(*bbox)
+        n = len(spanned)
+        if n <= 1:
+            self.lblTileWarning.setText("")
+        else:
+            self.lblTileWarning.setText(
+                self.tr(
+                    f"ℹ️ Tu AOI abarca {n} tiles distintos (IDs: {sorted(spanned)}). "
+                    "Se descargarán TODOS y se ensamblará un mosaico antes del recorte."
+                )
+            )
 
     # ------------------------------------------------------------------
     # download_tiles
@@ -360,7 +375,7 @@ class ClimateTilesDialog(QDialog):
             QMessageBox.warning(self, self.tr("Prefijo de archivo"), name_error)
             return
 
-        # --- Resolver centroide (y bbox si es polígono) ---
+        # --- Resolver centroide, bbox y lista de tile IDs ---
         polygon_layer = None
         try:
             if self.rbPoint.isChecked():
@@ -372,18 +387,8 @@ class ClimateTilesDialog(QDialog):
             QMessageBox.warning(self, self.tr("Área de interés"), str(exc))
             return
 
-        multi_tile_warning = batch.check_multi_tile_warning(bbox)
-        if multi_tile_warning:
-            reply = QMessageBox.question(
-                self, self.tr("El AOI cruza varios tiles"),
-                self.tr(multi_tile_warning + "\n\n¿Continuar de todas formas?"),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                return
-
         try:
-            tile_id = tiles.tile_id_from_lonlat(lon, lat)
+            tile_ids = batch.tiles_for_aoi(lon, lat, bbox)
         except tiles.TileError as exc:
             QMessageBox.warning(self, self.tr("Coordenadas inválidas"), str(exc))
             return
@@ -396,7 +401,7 @@ class ClimateTilesDialog(QDialog):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.lblStatus.setText(self.tr("Validando disponibilidad..."))
         try:
-            plan = batch.build_download_plan(mode, selected_vars, tile_id, model=model, ssp=ssp, period=period)
+            plan = batch.build_download_plan(mode, selected_vars, tile_ids, model=model, ssp=ssp, period=period)
         except batch.ClimateTileError as exc:
             QApplication.restoreOverrideCursor()
             self.lblStatus.setText(self.tr("Listo"))
@@ -417,13 +422,27 @@ class ClimateTilesDialog(QDialog):
 
         size_txt = format_bytes(total_size) if total_size else "desconocido"
         if unknown_size:
-            size_txt += " (al menos -- algún archivo no reportó tamaño)"
+            size_txt += " (al menos — algún archivo no reportó tamaño)"
+
+        n_tiles = len(tile_ids)
+        n_vars = len(selected_vars)
+        n_files = len(plan)  # = n_vars × n_tiles
+        tiles_info = (
+            f"{n_tiles} tile(s) por variable → {n_files} archivo(s) a descargar"
+            if n_tiles > 1
+            else f"{n_files} archivo(s) a descargar (uno por variable)"
+        )
+        mosaic_info = (
+            f"\nSe ensamblará un mosaico de {n_tiles} tiles por variable."
+            if n_tiles > 1
+            else ""
+        )
 
         reply = QMessageBox.question(
             self, self.tr("Confirmar descarga"),
             self.tr(
-                f"Se van a descargar {len(plan)} archivo(s) (uno por variable).\n"
-                f"Tamaño total estimado: {size_txt}.\n\n¿Continuar?"
+                f"{tiles_info}.\n"
+                f"Tamaño total estimado: {size_txt}.{mosaic_info}\n\n¿Continuar?"
             ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )

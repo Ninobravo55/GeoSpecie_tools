@@ -15,8 +15,11 @@ Decisiones acordadas con el usuario:
 
 import os
 
+from qgis.core import QgsProject
+from qgis.gui import QgsProjectionSelectionWidget
 from qgis.PyQt.QtCore import Qt, QCoreApplication
 from qgis.PyQt.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -44,10 +47,11 @@ class MaxentAnalysisDialog(QDialog):
         self.iface = iface
         self._worker = None
         self._close_requested = False
+        self._last_output_folder = ""
 
         self.setWindowTitle(self.tr("Analizar Resultados MaxEnt"))
-        self.resize(620, 560)
-        self.setMinimumSize(520, 480)
+        self.resize(620, 600)
+        self.setMinimumSize(520, 520)
 
         self._build_ui()
         self._connect_signals()
@@ -90,6 +94,7 @@ class MaxentAnalysisDialog(QDialog):
         group = QGroupBox(self.tr("Parámetros"))
         layout = QGridLayout(group)
 
+        # Criterio de threshold
         layout.addWidget(QLabel(self.tr("Criterio de threshold logístico")), 0, 0)
         self.cmbThreshold = QComboBox()
         self.cmbThreshold.setObjectName("cmbThreshold")
@@ -98,6 +103,22 @@ class MaxentAnalysisDialog(QDialog):
         if default_idx >= 0:
             self.cmbThreshold.setCurrentIndex(default_idx)
         layout.addWidget(self.cmbThreshold, 0, 1)
+
+        # Selector de CRS de salida (por defecto el del proyecto QGIS)
+        layout.addWidget(QLabel(self.tr("SRC de salida (Proyección)")), 1, 0)
+        self.crsSelector = QgsProjectionSelectionWidget()
+        self.crsSelector.setObjectName("crsSelector")
+        proj_crs = QgsProject.instance().crs()
+        if proj_crs.isValid():
+            self.crsSelector.setCrs(proj_crs)
+        layout.addWidget(self.crsSelector, 1, 1)
+
+        # Checkbox para cargar capas en QGIS
+        self.chkLoadLayers = QCheckBox(self.tr("Cargar capas en QGIS al finalizar con simbología"))
+        self.chkLoadLayers.setObjectName("chkLoadLayers")
+        self.chkLoadLayers.setChecked(True)
+        layout.addWidget(self.chkLoadLayers, 2, 0, 1, 2)
+
         layout.setColumnStretch(1, 1)
         return group
 
@@ -206,15 +227,24 @@ class MaxentAnalysisDialog(QDialog):
             QMessageBox.warning(self, self.tr("Carpeta de salida"), self.tr("Selecciona una carpeta de salida."))
             return
         os.makedirs(output_folder, exist_ok=True)
+        self._last_output_folder = output_folder
 
         threshold_criterion = self.cmbThreshold.currentText()
+
+        # CRS de destino
+        target_crs = None
+        if hasattr(self, 'crsSelector') and self.crsSelector.crs().isValid():
+            target_crs = self.crsSelector.crs().authid()
 
         self.txtLog.clear()
         self._set_running(True)
         self.progressBar.setValue(0)
         self.lblStatus.setText(self.tr("Iniciando análisis..."))
 
-        self._worker = MaxentAnalysisWorker(csv_path, folder, output_folder, threshold_criterion, parent=self)
+        self._worker = MaxentAnalysisWorker(
+            csv_path, folder, output_folder, threshold_criterion,
+            target_crs=target_crs, parent=self
+        )
         self._worker.sig_progress.connect(self._on_worker_progress)
         self._worker.sig_status.connect(self._on_worker_status)
         self._worker.sig_finished.connect(self._on_worker_finished)
@@ -244,6 +274,20 @@ class MaxentAnalysisDialog(QDialog):
                 self.txtLog.append(f"  Error: {r.error}")
             for w in r.warnings:
                 self.txtLog.append(f"  Advertencia: {w}")
+
+        # Cargar capas en QGIS si está activado
+        if self.chkLoadLayers.isChecked() and ok and self._last_output_folder:
+            try:
+                from . import batch, qgis_loader
+                total_loaded = 0
+                for r in ok:
+                    dirs = batch._species_output_dirs(self._last_output_folder, r.species_base)
+                    loaded = qgis_loader.load_species_results_to_qgis(r.species_base, dirs, self.iface)
+                    total_loaded += len(loaded)
+                if total_loaded > 0:
+                    self.txtLog.append(f"✓ {total_loaded} capa(s) cargadas en QGIS con simbología.")
+            except Exception as exc:
+                self.txtLog.append(f"⚠ Error cargando capas en QGIS: {exc}")
 
         summary = f"Procesadas correctamente: {len(ok)}\nOmitidas: {len(skipped)}\nCon advertencias: {len(with_warnings)}"
         if skipped:
